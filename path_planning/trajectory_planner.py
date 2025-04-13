@@ -114,8 +114,6 @@ class PathPlan(Node):
         clicked_x = pose.pose.pose.position.x
         clicked_y = pose.pose.pose.position.y
 
-        self.get_logger().info("Initial Pose Set")
-
         self.current_position = (clicked_x, clicked_y)
 
     def goal_cb(self, msg):
@@ -128,15 +126,13 @@ class PathPlan(Node):
             start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
             goal_px = self.map_to_pixel(*end_point)
             self.get_logger().info(f"Start: {start_point}, End: {end_point}")
-            path = a_star_final(map, start_px, goal_px, block_size=5)
+            path = a_star_final(map, start_px, goal_px, block_size=2)
             if path != None:
                 path = [(float(x), float(y)) for x, y in path]
+                self.get_logger().info("Path found! (from A*)")
                 for point in path:
                     point = self.pixel_to_map(*point)
-                    self.get_logger().info(f"Point: {point}")
                     self.trajectory.addPoint((float(point[0]),float(point[1])))
-                self.get_logger().info("Path found! (from A*)")
-                self.get_logger().info(f"Path: {path}")
             else:
                 self.get_logger().info("No path found (from A*)")
 

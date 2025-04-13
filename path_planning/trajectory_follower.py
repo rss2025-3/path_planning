@@ -20,8 +20,8 @@ class PurePursuit(Node):
         self.odom_topic = self.get_parameter('odom_topic').get_parameter_value().string_value
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
 
-        self.lookahead = 0.5  # FILL IN #
-        self.speed = 1.0  # FILL IN #
+        self.speed = 2.0  # FILL IN #
+        self.lookahead = 1.0 * self.speed  # FILL IN #
         self.wheelbase_length = 0.33  # FILL IN #
 
         self.trajectory = LineTrajectory("/followed_trajectory")
@@ -55,7 +55,7 @@ class PurePursuit(Node):
 
             closest_pt, min_dist, min_idx = self.closest_point_vectorized((map_x, map_y))
             lookahead_point = self.find_lookahead_point([map_x, map_y], min_idx)
-            self.get_logger().info(f'{min_idx=}')
+            #self.get_logger().info(f'{min_idx=}')
 
             if lookahead_point is not None:
                 lookahead_point = lookahead_point[1]
@@ -76,25 +76,49 @@ class PurePursuit(Node):
 
                 eta = math.atan2((lookahead_point[1] - map_y),  (lookahead_point[0] - map_x)) - theta
                 delta = math.atan2(2 * self.wheelbase_length * math.sin(eta),  self.lookahead)
-                self.get_logger().info(f'{eta=}')
+                #self.get_logger().info(f'{eta=}')
                 current_time = self.get_clock().now()
                 drive_cmd = AckermannDriveStamped()
                 drive_cmd.header.frame_id = "base_link"
                 drive_cmd.header.stamp = current_time.to_msg()
 
+                last_pt = np.array(self.trajectory.points[-1])
+                car_pos = np.array([map_x, map_y])
+                dist_to_goal = np.linalg.norm(last_pt - car_pos)
+
                 drive_cmd.drive.speed = 1 * self.speed
+
+                if dist_to_goal <= 1:
+                    drive_cmd.drive.speed *= dist_to_goal
+                    if dist_to_goal <= 0.1:
+                        drive_cmd.drive.speed = 0.0
+
                 drive_cmd.drive.steering_angle = delta
                 self.drive_pub.publish(drive_cmd)
             else:
+                last_pt = np.array(self.trajectory.points[-1])
+                car_pos = np.array([map_x, map_y])
                 current_time = self.get_clock().now()
+                dist_to_goal = np.linalg.norm(last_pt - car_pos)
+                self.get_logger().info(f"dist_to ")
 
-                drive_cmd = AckermannDriveStamped()
-                drive_cmd.header.frame_id = "base_link"
-                drive_cmd.header.stamp = current_time.to_msg()
+                if dist_to_goal < 1.5:  # threshold can be tuned
+                    self.get_logger().info("Reached end of trajectory, stopping.")
+                    drive_cmd = AckermannDriveStamped()
+                    drive_cmd.header.frame_id = "base_link"
+                    drive_cmd.header.stamp = current_time.to_msg()
 
-                drive_cmd.drive.speed = 1 * self.speed
-                drive_cmd.drive.steering_angle = 0.0
-                self.drive_pub.publish(drive_cmd)
+                    drive_cmd.drive.speed = 0.0
+                    drive_cmd.drive.steering_angle = 0.0
+                    self.drive_pub.publish(drive_cmd)
+                else:
+                    drive_cmd = AckermannDriveStamped()
+                    drive_cmd.header.frame_id = "base_link"
+                    drive_cmd.header.stamp = current_time.to_msg()
+
+                    drive_cmd.drive.speed = 1 * self.speed
+                    drive_cmd.drive.steering_angle = 0.0
+                    self.drive_pub.publish(drive_cmd)
 
    
 
