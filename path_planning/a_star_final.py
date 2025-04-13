@@ -102,7 +102,91 @@ def plot_path(grid, path, start, goal, filename='path_plot.png'):
     plt.savefig(filename, bbox_inches='tight')
     plt.close(fig)
 
-def a_star_final(grid, start, goal, block_size=10):
+def has_line_of_sight(grid, p1, p2):
+    """Bresenham's algorithm to check line of sight on grid."""
+    x0, y0 = p1
+    x1, y1 = p2
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    x, y = x0, y0
+    sx = 1 if x1 > x0 else -1
+    sy = 1 if y1 > y0 else -1
+
+    if dx > dy:
+        err = dx / 2.0
+        while x != x1:
+            if grid[x, y] != 0:
+                return False
+            err -= dy
+            if err < 0:
+                y += sy
+                err += dx
+            x += sx
+    else:
+        err = dy / 2.0
+        while y != y1:
+            if grid[x, y] != 0:
+                return False
+            err -= dx
+            if err < 0:
+                x += sx
+                err += dy
+            y += sy
+    return grid[x, y] == 0
+
+def smooth_path(path, grid):
+    if not path or len(path) < 2:
+        return path
+    smoothed = [path[0]]
+    i = 0
+    while i < len(path) - 1:
+        j = len(path) - 1
+        while j > i + 1:
+            if has_line_of_sight(grid, path[i], path[j]):
+                break
+            j -= 1
+        smoothed.append(path[j])
+        i = j
+    return smoothed
+
+from scipy.interpolate import splprep, splev
+
+def spline_smooth_path(path, num_points=100):
+    if len(path) < 3:
+        return path
+    x, y = zip(*path)
+    tck, u = splprep([x, y], s=2)
+    unew = np.linspace(0, 1, num_points)
+    out = splev(unew, tck)
+    return list(zip(out[0], out[1]))
+
+def moving_average_path(path, window_size=5):
+    """
+    Smooth path using a simple moving average filter.
+
+    Parameters:
+        path : list of (x, y) tuples
+        window_size : number of neighboring points to average over (must be odd)
+
+    Returns:
+        list of smoothed (x, y) tuples
+    """
+    if len(path) < window_size:
+        return path
+
+    padded = [path[0]] * (window_size//2) + path + [path[-1]] * (window_size//2)
+    smoothed = []
+
+    for i in range(len(path)):
+        window = padded[i:i+window_size]
+        avg_x = np.mean([p[0] for p in window])
+        avg_y = np.mean([p[1] for p in window])
+        smoothed.append((avg_x, avg_y))
+
+    return smoothed
+
+
+def a_star_final(grid, start, goal, block_size=10, do_prune=True, do_spline=False):
     """
 
     Parameters
@@ -122,14 +206,26 @@ def a_star_final(grid, start, goal, block_size=10):
 
     """
     grid = ~grid
-    start = downscale_coord(start, block_size)
-    goal = downscale_coord(goal, block_size)
+    start_ds = downscale_coord(start, block_size)
+    goal_ds = downscale_coord(goal, block_size)
     grid_array = downscale_binary(grid.T, block_size)
-    path, expanded, max_q = astar(grid_array, start, goal)
-    converted_path = None
-    plot_path(grid_array, path, start, goal, filename='path_plot.png')
-    if path != None:
-        converted_path = upscale_path(path, block_size)
-    
-    return converted_path
+    path, expanded, max_q = astar(grid_array, start_ds, goal_ds)
+
+    if path is None:
+        return None
+
+    if do_prune:
+        # Line-of-sight pruning
+        path = smooth_path(path, grid_array) if do_prune else path
+
+    plot_path(grid_array, path, start_ds, goal_ds, filename='path_plot.png')
+
+    # Optional spline smoothing
+    if do_spline:
+        pruned = spline_smooth_path(path, num_points=len(pruned) * 10)
+
+    # Upscale coordinates
+    upscaled = upscale_path(path, block_size)
+
+    return upscaled
     

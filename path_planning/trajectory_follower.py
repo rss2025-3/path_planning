@@ -21,7 +21,7 @@ class PurePursuit(Node):
         self.drive_topic = self.get_parameter('drive_topic').get_parameter_value().string_value
 
         self.speed = 2.0  # FILL IN #
-        self.lookahead = 1.0 * self.speed  # FILL IN #
+        self.lookahead = 0.5 * self.speed  # FILL IN #
         self.wheelbase_length = 0.33  # FILL IN #
 
         self.trajectory = LineTrajectory("/followed_trajectory")
@@ -92,6 +92,7 @@ class PurePursuit(Node):
                     drive_cmd.drive.speed *= dist_to_goal
                     if dist_to_goal <= 0.1:
                         drive_cmd.drive.speed = 0.0
+                        self.initialized_traj =  False
 
                 drive_cmd.drive.steering_angle = delta
                 self.drive_pub.publish(drive_cmd)
@@ -102,23 +103,19 @@ class PurePursuit(Node):
                 dist_to_goal = np.linalg.norm(last_pt - car_pos)
                 self.get_logger().info(f"dist_to ")
 
-                if dist_to_goal < 1.5:  # threshold can be tuned
-                    self.get_logger().info("Reached end of trajectory, stopping.")
-                    drive_cmd = AckermannDriveStamped()
-                    drive_cmd.header.frame_id = "base_link"
-                    drive_cmd.header.stamp = current_time.to_msg()
+                drive_cmd = AckermannDriveStamped()
+                drive_cmd.header.frame_id = "base_link"
+                drive_cmd.header.stamp = current_time.to_msg()
 
-                    drive_cmd.drive.speed = 0.0
-                    drive_cmd.drive.steering_angle = 0.0
-                    self.drive_pub.publish(drive_cmd)
-                else:
-                    drive_cmd = AckermannDriveStamped()
-                    drive_cmd.header.frame_id = "base_link"
-                    drive_cmd.header.stamp = current_time.to_msg()
+                drive_cmd.drive.speed = 1 * self.speed
 
-                    drive_cmd.drive.speed = 1 * self.speed
-                    drive_cmd.drive.steering_angle = 0.0
-                    self.drive_pub.publish(drive_cmd)
+                if dist_to_goal <= 1:
+                    drive_cmd.drive.speed *= dist_to_goal
+                    if dist_to_goal <= 0.1:
+                        drive_cmd.drive.speed = 0.0
+
+                drive_cmd.drive.steering_angle = 0.0
+                self.drive_pub.publish(drive_cmd)
 
    
 

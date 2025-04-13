@@ -129,7 +129,7 @@ class PathPlan(Node):
             path = a_star_final(map, start_px, goal_px, block_size=2)
             if path != None:
                 path = [(float(x), float(y)) for x, y in path]
-                self.get_logger().info("Path found! (from A*)")
+                self.get_logger().info(f"Path found! (from A*): {path}")
                 for point in path:
                     point = self.pixel_to_map(*point)
                     self.trajectory.addPoint((float(point[0]),float(point[1])))
