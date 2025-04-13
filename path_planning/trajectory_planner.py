@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation
+from .a_star_final import a_star_final
 
 assert rclpy
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
@@ -32,27 +33,28 @@ class PathPlan(Node):
             self.map_cb,
             1)
 
-        # self.goal_sub = self.create_subscription(
-        #     PoseStamped,
-        #     "/goal_pose",
-        #     self.goal_cb,
-        #     10
-        # )
+        self.goal_sub = self.create_subscription(
+            PoseStamped,
+            "/goal_pose",
+            self.goal_cb,
+            10
+        )
 
-        # self.traj_pub = self.create_publisher(
-        #     PoseArray,
-        #     "/trajectory/current",
-        #     10
-        # )
+        self.traj_pub = self.create_publisher(
+            PoseArray,
+            "/trajectory/current",
+            10
+        )
 
-        # self.pose_sub = self.create_subscription(
-        #     PoseWithCovarianceStamped,
-        #     self.initial_pose_topic,
-        #     self.pose_cb,
-        #     10
-        # )
+        self.pose_sub = self.create_subscription(
+            PoseWithCovarianceStamped,
+            self.initial_pose_topic,
+            self.pose_cb,
+            10
+        )
 
         self.trajectory = LineTrajectory(node=self, viz_namespace="/planned_trajectory")
+        self.current_position = (0,0)
 
     def map_cb(self, map_msg):
         occupancy_data = np.array(map_msg.data)
@@ -109,17 +111,38 @@ class PathPlan(Node):
         return pixel_x, pixel_y
 
     def pose_cb(self, pose):
-        clicked_x = pose.pose.position.x
-        clicked_y = pose.pose.position.y
+        clicked_x = pose.pose.pose.position.x
+        clicked_y = pose.pose.pose.position.y
 
-        raise NotImplementedError
+        self.get_logger().info("Initial Pose Set")
+
+        self.current_position = (clicked_x, clicked_y)
 
     def goal_cb(self, msg):
-        raise NotImplementedError
+        goal = (msg.pose.position.x, msg.pose.position.y)
+        self.plan_path(self.current_position, goal, self.dilated_occupancy_grid)
 
-    def plan_path(self, start_point, end_point, map):
+    def plan_path(self, start_point, end_point, map, a_star=True):
+        if a_star:
+            self.trajectory.clear()
+            start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
+            goal_px = self.map_to_pixel(*end_point)
+            self.get_logger().info(f"Start: {start_point}, End: {end_point}")
+            path = a_star_final(map, start_px, goal_px, block_size=5)
+            if path != None:
+                path = [(float(x), float(y)) for x, y in path]
+                for point in path:
+                    point = self.pixel_to_map(*point)
+                    self.get_logger().info(f"Point: {point}")
+                    self.trajectory.addPoint((float(point[0]),float(point[1])))
+                self.get_logger().info("Path found! (from A*)")
+                self.get_logger().info(f"Path: {path}")
+            else:
+                self.get_logger().info("No path found (from A*)")
+
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
+
 
     def save_grid_image(self, filename="src/path_planning/binary_occupancy_grid.png", dpi=1000):
         np.save("src/path_planning/binary_occupancy_grid.npy", self.binary_occupancy_grid)
