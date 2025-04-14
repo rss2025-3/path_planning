@@ -3,6 +3,7 @@ from rclpy.node import Node
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation
 from .a_star_final import a_star_final
+from .rrt import RRT
 
 assert rclpy
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PoseArray
@@ -118,7 +119,7 @@ class PathPlan(Node):
 
     def goal_cb(self, msg):
         goal = (msg.pose.position.x, msg.pose.position.y)
-        self.plan_path(self.current_position, goal, self.dilated_occupancy_grid)
+        self.plan_path(self.current_position, goal, self.dilated_occupancy_grid, a_star=False)
 
     def plan_path(self, start_point, end_point, map, a_star=True):
         if a_star:
@@ -135,6 +136,33 @@ class PathPlan(Node):
                     self.trajectory.addPoint((float(point[0]),float(point[1])))
             else:
                 self.get_logger().info("No path found (from A*)")
+
+        if not a_star: #rrt
+            self.trajectory.clear()
+            start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
+            goal_px = self.map_to_pixel(*end_point)
+            self.get_logger().info(f"Running RRT, Start: {start_px}, End: {goal_px}, Map shape: {self.dilated_occupancy_grid.shape}")
+            
+            rrt = RRT(
+                start=start_px,
+                goal=goal_px,
+                obstacles=map,#self.dilated_occupancy_grid,
+                x_bound=(0, self.dilated_occupancy_grid.shape[1] * self.resolution),
+                y_bound=(0, self.dilated_occupancy_grid.shape[0] * self.resolution),
+                map_resolution=self.resolution,
+                origin_x=self.origin_x,
+                origin_y=self.origin_y,
+                map_to_pixel=self.map_to_pixel
+            )
+
+            path = rrt.plan()
+
+            if path != None:
+                for point in reversed(path):  
+                    point = self.pixel_to_map(*point)
+                    self.trajectory.addPoint((float(point[0]),float(point[1])))
+            else:
+                self.get_logger().info("No path found (from RRT)")
 
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
