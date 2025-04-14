@@ -23,7 +23,7 @@ class Node:
 def euclidean(a, b):
     return ((a[0]-b[0])**2 + (a[1]-b[1])**2)**0.5
 
-def get_neighbors(pos, grid, diagonal=True):
+def get_neighbors(pos, grid, diagonal=False):
     directions = [(-1,0), (1,0), (0,-1), (0,1)]
     if diagonal:
         directions += [(-1,-1), (-1,1), (1,-1), (1,1)]

@@ -1,2 +1,7 @@
 *.pyc
 .idea/
+path_planning/rosbags.7z
+path_planning/rosbag*
+path_planning/secondrun
+path_planning/thirdrun
+path_planning/official

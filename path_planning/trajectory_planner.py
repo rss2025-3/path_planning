@@ -63,11 +63,19 @@ class PathPlan(Node):
         binary_occupancy_grid = binary_occupancy_grid.reshape((map_msg.info.height, map_msg.info.width))
         self.binary_occupancy_grid = binary_occupancy_grid
 
-        # Invert and dilate the binary occupancy grid
-        self.dilated_occupancy_grid = binary_dilation(self.binary_occupancy_grid, iterations=10)
-        self.dilated_occupancy_grid = ~self.dilated_occupancy_grid 
+        try:
+            self.dilated_occupancy_grid = np.load("dilated_occupancy_grid.npy")
 
-        self.get_logger().info("Binary occupancy grid created and dilated.")
+            self.get_logger().info("Precomputed binary occupancy grid loaded.")
+        except:
+            # Invert and dilate the binary occupancy grid
+            self.dilated_occupancy_grid = binary_dilation(self.binary_occupancy_grid, iterations=10)
+            self.dilated_occupancy_grid = ~self.dilated_occupancy_grid 
+            #np.save(self.dilated_occupancy_grid)
+            
+            np.save("dilated_occupancy_grid.npy", self.dilated_occupancy_grid)
+
+            self.get_logger().info("Binary occupancy grid created and dilated.")
         
         # Save the grid as an image
         self.save_grid_image()
@@ -127,7 +135,7 @@ class PathPlan(Node):
             start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
             goal_px = self.map_to_pixel(*end_point)
             self.get_logger().info(f"Start: {start_point}, End: {end_point}")
-            path = a_star_final(map, start_px, goal_px, block_size=2)
+            path = a_star_final(map, start_px, goal_px, block_size=5)
             if path != None:
                 path = [(float(x), float(y)) for x, y in path]
                 self.get_logger().info(f"Path found! (from A*): {path}")
