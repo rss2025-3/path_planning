@@ -23,7 +23,7 @@ class Node:
 def euclidean(a, b):
     return ((a[0]-b[0])**2 + (a[1]-b[1])**2)**0.5
 
-def get_neighbors(pos, grid, diagonal=False):
+def get_neighbors(pos, grid, diagonal=True):
     directions = [(-1,0), (1,0), (0,-1), (0,1)]
     if diagonal:
         directions += [(-1,-1), (-1,1), (1,-1), (1,1)]
@@ -91,12 +91,15 @@ def upscale_path(path, block_size):
     
     return scaled_path
 
-def plot_path(grid, path, start, goal, filename='path_plot.png'):
+def plot_path(grid, path, start, goal, filename='path_plot.png', path2=None):
     fig, ax = plt.subplots()
     ax.imshow(grid, cmap='Greys', origin='upper')
     if path:
         px, py = zip(*path)
-        ax.plot(py, px, color='red')
+        ax.plot(py, px, color='red', linewidth=3)
+    if path2:
+        px, py = zip(*path2)
+        ax.plot(py, px, color='purple', linewidth=3)
     ax.plot(start[1], start[0], 'go')  # Start
     ax.plot(goal[1], goal[0], 'bo')    # Goal
     plt.savefig(filename, bbox_inches='tight')
@@ -218,14 +221,14 @@ def a_star_final(grid, start, goal, block_size=10, do_prune=True, do_spline=Fals
         # Line-of-sight pruning
         path = smooth_path(path, grid_array) if do_prune else path
 
-    plot_path(grid_array, path, start_ds, goal_ds, filename='path_plot.png')
-
     # Optional spline smoothing
     if do_spline:
         pruned = spline_smooth_path(path, num_points=len(pruned) * 10)
 
     # Upscale coordinates
     upscaled = upscale_path(path, block_size)
+
+    plot_path(grid, [(j, i) for (i, j) in upscaled], (start[1], start[0]), (goal[1], goal[0]), filename='path_plot.png')
 
     return upscaled
     
