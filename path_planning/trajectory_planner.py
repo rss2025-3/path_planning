@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 import matplotlib.pyplot as plt
 from scipy.ndimage import binary_dilation
-from .a_star_final import a_star_final
+from .a_star_final import a_star_final, plot_path
 from .rrt import RRT
 
 assert rclpy
@@ -127,9 +127,10 @@ class PathPlan(Node):
 
     def goal_cb(self, msg):
         goal = (msg.pose.position.x, msg.pose.position.y)
-        self.plan_path(self.current_position, goal, self.dilated_occupancy_grid, a_star=False)
+        self.plan_path(self.current_position, goal, self.dilated_occupancy_grid, a_star=True)
 
     def plan_path(self, start_point, end_point, map, a_star=True):
+        start_time = self.get_clock().now()
         if a_star:
             self.trajectory.clear()
             start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
@@ -145,7 +146,20 @@ class PathPlan(Node):
             else:
                 self.get_logger().info("No path found (from A*)")
 
-        if not a_star: #rrt
+        end_time = self.get_clock().now()
+        runtime = (end_time - start_time).nanoseconds / 1e9  # Convert to seconds
+        self.get_logger().info(f"A* Runtime: {runtime} seconds")
+
+        path2 = path
+
+        distance = 0
+        for i in range(1, len(path)):
+            new_distance = (path[i][0]-path[i-1][0])**2 + (path[i][1]-path[i-1][1])**2
+            distance += new_distance**0.5
+        self.get_logger().info(f"A* Distance: {distance} pixels")
+
+        start_time = self.get_clock().now()
+        if a_star: #rrt
             self.trajectory.clear()
             start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
             goal_px = self.map_to_pixel(*end_point)
@@ -174,6 +188,20 @@ class PathPlan(Node):
 
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
+
+        end_time = self.get_clock().now()
+        runtime = (end_time - start_time).nanoseconds / 1e9  # Convert to seconds
+
+        # Log and publish runtime
+        self.get_logger().info(f"RRT Runtime: {runtime} seconds")
+
+        distance = 0
+        for i in range(1, len(path)):
+            new_distance = (path[i][0]-path[i-1][0])**2 + (path[i][1]-path[i-1][1])**2
+            distance += new_distance**0.5
+        self.get_logger().info(f"RRT Distance: {distance} pixels")
+
+        plot_path(~map.T, path, start_px, goal_px, filename='path_plot.png', path2=path2)
 
 
     def save_grid_image(self, filename="src/path_planning/binary_occupancy_grid.png", dpi=1000):
