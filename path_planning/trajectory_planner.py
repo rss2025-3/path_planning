@@ -158,7 +158,7 @@ class PathPlan(Node):
             distance += new_distance**0.5
         self.get_logger().info(f"A* Distance: {distance} pixels")
 
-        start_time = self.get_clock().now()
+        start_time2 = self.get_clock().now()
         if a_star: #rrt
             self.trajectory.clear()
             start_px = self.map_to_pixel(*start_point)  # (x, y) in meters → pixels
@@ -189,11 +189,11 @@ class PathPlan(Node):
         self.traj_pub.publish(self.trajectory.toPoseArray())
         self.trajectory.publish_viz()
 
-        end_time = self.get_clock().now()
-        runtime = (end_time - start_time).nanoseconds / 1e9  # Convert to seconds
+        end_time2 = self.get_clock().now()
+        runtime2 = (end_time2 - start_time2).nanoseconds / 1e9  # Convert to seconds
 
         # Log and publish runtime
-        self.get_logger().info(f"RRT Runtime: {runtime} seconds")
+        self.get_logger().info(f"RRT Runtime: {runtime2} seconds")
 
         distance = 0
         if path != None:

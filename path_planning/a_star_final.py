@@ -93,15 +93,24 @@ def upscale_path(path, block_size):
 
 def plot_path(grid, path, start, goal, filename='path_plot.png', path2=None):
     fig, ax = plt.subplots()
-    ax.imshow(grid, cmap='Greys', origin='upper')
+
+    # Desired hex color
+    hex_color = '#737373'
+    rgba_color = plt.matplotlib.colors.to_rgba(hex_color)
+
+    # Create RGBA image: shape (rows, cols, 4)
+    image = np.zeros(grid.shape + (4,))
+    image[grid == 1] = rgba_color  # Apply color where grid == 1
+
+    ax.imshow(image, cmap='Greys', origin='upper')
     if path:
         px, py = zip(*path)
-        ax.plot(py, px, color='red', linewidth=3)
+        ax.plot(py, px, color='#4285f4', linewidth=3)
     if path2:
         px, py = zip(*path2)
-        ax.plot(py, px, color='purple', linewidth=3)
-    ax.plot(start[1], start[0], 'go')  # Start
-    ax.plot(goal[1], goal[0], 'bo')    # Goal
+        ax.plot(py, px, color='#e69138', linewidth=3)
+    ax.plot(start[1], start[0], marker='o', color='#cc0000')  # Start
+    ax.plot(goal[1], goal[0], marker='o', color='#6aa84f')    # Goal
     plt.savefig(filename, bbox_inches='tight')
     plt.close(fig)
 

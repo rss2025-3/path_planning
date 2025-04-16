@@ -40,7 +40,7 @@ class RRT:
         self.map_to_pixel = map_to_pixel
 
     def plan(self, do_prune=False):
-        print("planning")
+        #print("planning")
         self.node_list = [self.start]
         for i in range(self.max):
             random = self.get_random()
@@ -48,13 +48,13 @@ class RRT:
             new = self.steer(nearest, random)
 
             if not self.collision(nearest, new):
-                print(f"no collision, new:{new.pos}")
+                #print(f"no collision, new:{new.pos}")
                 self.node_list.append(new)
             # else:
                 # print("collided")
 
             if self.is_goal_reached(new):
-                print("goal reached")
+                #print("goal reached")
                 path = self.create_path(len(self.node_list)-1)
                 if do_prune:
                     # Line-of-sight pruning
@@ -117,7 +117,7 @@ class RRT:
             #print(f"px:{px}, py:{py}, obstacle:{self.obstacles[py,px]}")
 
             if px < 0 or py < 0 or py >= self.obstacles.shape[0] or px >= self.obstacles.shape[1]:
-                print(f"out of bounds, px:{px}, py:{py}, obstacles shape[1]:{self.obstacles.shape[1]}")
+                #print(f"out of bounds, px:{px}, py:{py}, obstacles shape[1]:{self.obstacles.shape[1]}")
                 return True 
 
             if self.obstacles[py,px] == 0:
@@ -130,7 +130,7 @@ class RRT:
         dx = current_node.pos[0] - self.goal.pos[0]
         dy = current_node.pos[1] - self.goal.pos[1]
         dist = np.sqrt(dx**2 + dy**2)
-        print(f"Distance to goal: {dist}")
+        #print(f"Distance to goal: {dist}")
         return dist < self.goal_dist
 
     def create_path(self, goal_index):
