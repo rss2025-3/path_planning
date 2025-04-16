@@ -1,4 +1,6 @@
 import numpy as np
+import heapq
+import matplotlib.pyplot as plt
 
 class RRT:
     class Node:
@@ -14,7 +16,7 @@ class RRT:
         x_bound,
         y_bound,
         max = 5000,
-        resolution = 20.0, #0.2,
+        resolution = 60.0, #0.2,
         goal_dist = 20.0,#0.2,
         map_resolution = None,
         origin_x = 0,
@@ -37,7 +39,7 @@ class RRT:
         self.origin_y = origin_y
         self.map_to_pixel = map_to_pixel
 
-    def plan(self):
+    def plan(self, do_prune=False):
         print("planning")
         self.node_list = [self.start]
         for i in range(self.max):
@@ -52,11 +54,17 @@ class RRT:
                 # print("collided")
 
             if self.is_goal_reached(new):
-                # final_node = self.steer(###)
-                # if not self.collision(###):
-                #     return self.create_path(len(self.node_list)-1)
                 print("goal reached")
-                return self.create_path(len(self.node_list)-1)
+                path = self.create_path(len(self.node_list)-1)
+                if do_prune:
+                    # Line-of-sight pruning
+                    grid = ~self.obstacles
+                    path = self.smooth_path(path, grid) if do_prune else path
+                    #path = self.smooth_path(path, self.downscale_binary(grid.T, 2)) if do_prune else path
+
+
+                self.plot_path(self.obstacles, path, self.start, self.goal, filename='rrt_test.png')
+                return path
 
         return None
 
@@ -106,7 +114,7 @@ class RRT:
 
             px = int(np.round(x))
             py = int(np.round(y))
-            print(f"px:{px}, py:{py}, obstacle:{self.obstacles[py,px]}")
+            #print(f"px:{px}, py:{py}, obstacle:{self.obstacles[py,px]}")
 
             if px < 0 or py < 0 or py >= self.obstacles.shape[0] or px >= self.obstacles.shape[1]:
                 print(f"out of bounds, px:{px}, py:{py}, obstacles shape[1]:{self.obstacles.shape[1]}")
@@ -135,3 +143,71 @@ class RRT:
         
         path.append(node.pos)
         return path
+
+    def downscale_binary(self, arr, block_size=10):
+        new_shape = (arr.shape[0] // block_size, arr.shape[1] // block_size)
+        downscaled = np.zeros(new_shape, dtype=int)
+        for i in range(0, arr.shape[0], block_size):
+            for j in range(0, arr.shape[1], block_size):
+                block = arr[i:i+block_size, j:j+block_size]
+                downscaled[i//block_size, j//block_size] = np.mean(block) > 0
+        return downscaled
+
+    def has_line_of_sight(self, grid, p1, p2):
+        """Bresenham's algorithm to check line of sight on grid."""
+        x0, y0 = p1
+        x1, y1 = p2
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        x, y = x0, y0
+        sx = 1 if x1 > x0 else -1
+        sy = 1 if y1 > y0 else -1
+
+        if dx > dy:
+            err = dx / 2.0
+            while x != x1:
+                if grid[int(round(x)), int(round(y))] != 0:
+                    return False
+                err -= dy
+                if err < 0:
+                    y += sy
+                    err += dx
+                x += sx
+        else:
+            err = dy / 2.0
+            while y != y1:
+                if grid[int(round(x)), int(round(y))] != 0:
+                    return False
+                err -= dx
+                if err < 0:
+                    x += sx
+                    err += dy
+                y += sy
+        return grid[int(round(x)), int(round(y))] == 0
+
+    def smooth_path(self, path, grid):
+        if not path or len(path) < 2:
+            return path
+        smoothed = [path[0]]
+        i = 0
+        while i < len(path) - 1:
+            j = len(path) - 1
+            while j > i + 1:
+                if self.has_line_of_sight(grid, path[i], path[j]):
+                    break
+                j -= 1
+            smoothed.append(path[j])
+            i = j
+        return smoothed
+
+    def plot_path(self, grid, path, start, goal, filename='rrt_path_plot.png'):
+        fig, ax = plt.subplots()
+        flipped_grid = np.flipud(grid)
+        ax.imshow(~grid, cmap='Greys', origin='upper')
+        if path:
+            px, py = zip(*path)
+            ax.plot(px, py, color='red')
+        ax.plot(start.pos[0], start.pos[1], 'go')  # Start
+        ax.plot(goal.pos[0], goal.pos[1], 'bo')    # Goal
+        plt.savefig(filename, bbox_inches='tight')
+        plt.close(fig)

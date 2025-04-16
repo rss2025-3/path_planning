@@ -177,7 +177,7 @@ class PathPlan(Node):
                 map_to_pixel=self.map_to_pixel
             )
 
-            path = rrt.plan()
+            path = rrt.plan(do_prune = False)
 
             if path != None:
                 for point in reversed(path):  
@@ -196,9 +196,10 @@ class PathPlan(Node):
         self.get_logger().info(f"RRT Runtime: {runtime} seconds")
 
         distance = 0
-        for i in range(1, len(path)):
-            new_distance = (path[i][0]-path[i-1][0])**2 + (path[i][1]-path[i-1][1])**2
-            distance += new_distance**0.5
+        if path != None:
+            for i in range(1, len(path)):
+                new_distance = (path[i][0]-path[i-1][0])**2 + (path[i][1]-path[i-1][1])**2
+                distance += new_distance**0.5
         self.get_logger().info(f"RRT Distance: {distance} pixels")
 
         plot_path(~map.T, path, start_px, goal_px, filename='path_plot.png', path2=path2)
